@@ -1,3 +1,9 @@
+//check for Japanese text in files folder and save them to an Excel file
+//Usage: node tool.js <folder_path>
+//Example: node tool.js /Users/username/Documents/Project
+//required libraries: glob, cheerio, japanese, xlsx, node > v15.0.0
+//npm install glob cheerio japanese xlsx
+
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -28,16 +34,21 @@ async function runTool(folderPath) {
     function checkVueFile(filePath) {
         const content = fs.readFileSync(filePath, 'utf-8');
         const $ = cheerio.load(content, { xmlMode: true });
+        let fileTexts = new Set();
 
         $('*').each((index, element) => {
             const text = $(element).text().trim();
             const japaneseMatches = text.match(/[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]+/gu);
             if (japaneseMatches) {
                 japaneseMatches.forEach(match => {
-                    foundTexts.push({ File: filePath, JapaneseText: match });
+                    fileTexts.add(match);
                 });
             }
         });
+
+        if (fileTexts.size > 0) {
+            foundTexts.push({ File: filePath, JapaneseTexts: Array.from(fileTexts) });
+        }
     }
 
     const files = await glob(vueFilesPath);
@@ -51,11 +62,28 @@ async function runTool(folderPath) {
 }
 
 function saveToExcel(data) {
-    const ws = xlsx.utils.json_to_sheet(data);
+    let formattedData = [];
+    data.forEach(item => {
+        let row = { File: item.File };
+        item.JapaneseTexts.forEach((text, index) => {
+            row[`text${index + 1}`] = text;
+        });
+        formattedData.push(row);
+    });
+
+    const ws = xlsx.utils.json_to_sheet(formattedData);
     const wb = xlsx.utils.book_new();
     xlsx.utils.book_append_sheet(wb, ws, 'Japanese Texts');
-    xlsx.writeFile(wb, 'Japanese_Texts.xlsx');
-    console.log('Japanese texts saved to Japanese_Texts.xlsx');
+
+    let fileName = 'Japanese_Texts.xlsx';
+    let counter = 1;
+    while (fs.existsSync(fileName)) {
+        fileName = `Japanese_Texts_${counter}.xlsx`;
+        counter++;
+    }
+
+    xlsx.writeFile(wb, fileName);
+    console.log(`Japanese texts saved to ${fileName}`);
 }
 
 const folderPath = process.argv[2];
