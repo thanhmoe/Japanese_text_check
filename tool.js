@@ -28,10 +28,11 @@ async function runTool(folderPath) {
     const japanese = require('japanese');
     const xlsx = require('xlsx');
 
-    const vueFilesPath = path.join(folderPath, '**/*.vue');
+    // Include .vue, .js, and .ts files in the glob pattern
+    const filesPath = path.join(folderPath, '**/*.{vue,js,ts}');
     let foundTexts = [];
     
-    function checkVueFile(filePath) {
+    function checkFile(filePath) {
         const content = fs.readFileSync(filePath, 'utf-8');
         const $ = cheerio.load(content, { xmlMode: true });
         let fileTexts = new Set();
@@ -51,8 +52,8 @@ async function runTool(folderPath) {
         }
     }
 
-    const files = await glob(vueFilesPath);
-    files.forEach(file => checkVueFile(file));
+    const files = await glob(filesPath);
+    files.forEach(file => checkFile(file));
 
     if (foundTexts.length > 0) {
         saveToExcel(foundTexts);
